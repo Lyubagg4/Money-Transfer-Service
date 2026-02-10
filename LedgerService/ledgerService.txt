@@ -16,12 +16,13 @@ class LedgerServiceApplicationTests {
 ===== ./src/main/java/ru/zyryanova/LedgerService/handler/TransferCreatedEventHandler.java =====
 package ru.zyryanova.LedgerService.handler;
 
+import org.example.NotificationCreatedEvent;
 import org.example.TransferCreatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.kafka.annotation.KafkaHandler;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 import ru.zyryanova.LedgerService.entity.LedgerEntry;
@@ -34,27 +35,33 @@ import java.time.LocalDateTime;
 public class TransferCreatedEventHandler {
     private final AccountService accountService;
     private final LedgerEntryService ledgerEntryService;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private String topicName = "notification-created-topic";
     private Logger logger = LoggerFactory.getLogger(this.getClass());
 
     @Autowired
-    public TransferCreatedEventHandler(AccountService accountService, LedgerEntryService ledgerEntryService) {
+    public TransferCreatedEventHandler(AccountService accountService, LedgerEntryService ledgerEntryService, KafkaTemplate<String, Object> kafkaTemplate) {
         this.accountService = accountService;
         this.ledgerEntryService = ledgerEntryService;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     @KafkaListener(topics = "transfer-created-topic",
             groupId = "transfer-created-events",
             containerFactory = "kafkaListenerContainerFactory")
     public void handle(@Payload TransferCreatedEvent transferCreatedEvent){
-        logger.info("!!!!ВСЕ ПОЛУЧИЛОСЬ!!!!");
+        logger.info("!!!!"+transferCreatedEvent.getEventId()+"!!!!");
         LedgerEntry ledgerEntry = new LedgerEntry();
         ledgerEntry.setEventId(transferCreatedEvent.getEventId());
         ledgerEntry.setSenderId(transferCreatedEvent.getSenderId());
         ledgerEntry.setRecipientId(transferCreatedEvent.getRecipientId());
         ledgerEntry.setAmount(transferCreatedEvent.getAmount());
-        ledgerEntry.setCreatedAt(LocalDateTime.now());
+        ledgerEntry.setCreatedAt(transferCreatedEvent.getCreatedAt());
         ledgerEntry.setTransferId(transferCreatedEvent.getTransfer_id());
         ledgerEntryService.createTransferEntry(ledgerEntry);
+        //TODO чето там INFO WARN ERROR
+        NotificationCreatedEvent notificationCreatedEvent = new NotificationCreatedEvent(ledgerEntry.getEventId(), "INFO", LocalDateTime.now());
+        kafkaTemplate.send(topicName,notificationCreatedEvent);
 
     }
 }
@@ -141,8 +148,8 @@ import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 import org.springframework.util.backoff.FixedBackOff;
-import ru.zyryanova.LedgerService.exception.NonRetryableException;
-import ru.zyryanova.LedgerService.exception.RetryableException;
+import ru.zyryanova.LedgerService.error.NonRetryableException;
+import ru.zyryanova.LedgerService.error.RetryableException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -179,9 +186,10 @@ public class KafkaConfig {
     }
 
     @Bean
-    KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> producerFactory){
+    KafkaTemplate<String, Object> kafkaTemplate1(ProducerFactory<String, Object> producerFactory){
         return new KafkaTemplate<>(producerFactory);
     }
+
     @Bean
     ConcurrentKafkaListenerContainerFactory<String, TransferCreatedEvent> kafkaListenerContainerFactory(
             ConsumerFactory<String, TransferCreatedEvent> consumerFactory,
@@ -196,9 +204,10 @@ public class KafkaConfig {
         factory.setCommonErrorHandler(errorHandler);
         return factory;
     }
+
     @Bean
-    NewTopic transferCreatedDltTopic(){
-        return TopicBuilder.name("transfer-created-topic-dlt")
+    NewTopic createNotificationCreatedTopic(){
+        return TopicBuilder.name("notification-created-topic")
                 .partitions(3)
                 .replicas(3)
                 .configs(Map.of("min.insync.replicas","2"))
@@ -432,17 +441,10 @@ public class LedgerEntryService {
 package ru.zyryanova.LedgerService.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.zyryanova.LedgerService.entity.Account;
-import ru.zyryanova.LedgerService.entity.LedgerEntry;
-import ru.zyryanova.LedgerService.exception.NonRetryableException;
+import ru.zyryanova.LedgerService.error.NonRetryableException;
 import ru.zyryanova.LedgerService.repository.AccountRepo;
-import ru.zyryanova.LedgerService.repository.LedgerEntryRepo;
-
-import javax.xml.crypto.Data;
-import java.util.Optional;
 
 @Service
 public class AccountService {
@@ -471,8 +473,8 @@ public class AccountService {
 
 }
 
-===== ./src/main/java/ru/zyryanova/LedgerService/exception/NonRetryableException.java =====
-package ru.zyryanova.LedgerService.exception;
+===== ./src/main/java/ru/zyryanova/LedgerService/error/NonRetryableException.java =====
+package ru.zyryanova.LedgerService.error;
 
 public class NonRetryableException extends RuntimeException{
     public NonRetryableException(String message) {
@@ -484,8 +486,8 @@ public class NonRetryableException extends RuntimeException{
     }
 }
 
-===== ./src/main/java/ru/zyryanova/LedgerService/exception/RetryableException.java =====
-package ru.zyryanova.LedgerService.exception;
+===== ./src/main/java/ru/zyryanova/LedgerService/error/RetryableException.java =====
+package ru.zyryanova.LedgerService.error;
 
 public class RetryableException extends RuntimeException{
     public RetryableException(String message) {

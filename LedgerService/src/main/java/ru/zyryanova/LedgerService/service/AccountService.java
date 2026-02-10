@@ -1,17 +1,10 @@
 package ru.zyryanova.LedgerService.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.zyryanova.LedgerService.entity.Account;
-import ru.zyryanova.LedgerService.entity.LedgerEntry;
-import ru.zyryanova.LedgerService.exception.NonRetryableException;
+import ru.zyryanova.LedgerService.error.NonRetryableException;
 import ru.zyryanova.LedgerService.repository.AccountRepo;
-import ru.zyryanova.LedgerService.repository.LedgerEntryRepo;
-
-import javax.xml.crypto.Data;
-import java.util.Optional;
 
 @Service
 public class AccountService {

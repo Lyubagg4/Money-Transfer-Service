@@ -21,8 +21,8 @@ import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 import org.springframework.util.backoff.FixedBackOff;
-import ru.zyryanova.LedgerService.exception.NonRetryableException;
-import ru.zyryanova.LedgerService.exception.RetryableException;
+import ru.zyryanova.LedgerService.error.NonRetryableException;
+import ru.zyryanova.LedgerService.error.RetryableException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -59,9 +59,10 @@ public class KafkaConfig {
     }
 
     @Bean
-    KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> producerFactory){
+    KafkaTemplate<String, Object> kafkaTemplate1(ProducerFactory<String, Object> producerFactory){
         return new KafkaTemplate<>(producerFactory);
     }
+
     @Bean
     ConcurrentKafkaListenerContainerFactory<String, TransferCreatedEvent> kafkaListenerContainerFactory(
             ConsumerFactory<String, TransferCreatedEvent> consumerFactory,
@@ -77,4 +78,12 @@ public class KafkaConfig {
         return factory;
     }
 
+    @Bean
+    NewTopic createNotificationCreatedTopic(){
+        return TopicBuilder.name("notification-created-topic")
+                .partitions(3)
+                .replicas(3)
+                .configs(Map.of("min.insync.replicas","2"))
+                .build();
+    }
 }
