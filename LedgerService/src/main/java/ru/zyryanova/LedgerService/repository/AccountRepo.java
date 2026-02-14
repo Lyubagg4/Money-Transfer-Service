@@ -37,6 +37,4 @@ public interface AccountRepo extends JpaRepository<Account, Integer> {
                 and exists (select 1 from ok)
             """)
     int deltaAmount(@Param("senderId") String senderId, @Param("recipientId") String recipientId, @Param("amount") long amount);
-
-
 }

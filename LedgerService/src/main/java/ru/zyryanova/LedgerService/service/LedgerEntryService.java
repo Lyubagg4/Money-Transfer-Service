@@ -10,22 +10,25 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.zyryanova.LedgerService.entity.LedgerEntry;
 import ru.zyryanova.LedgerService.repository.LedgerEntryRepo;
+import ru.zyryanova.LedgerService.repository.LedgerOutboxRepo;
 
 @Service
 public class LedgerEntryService {
     private final LedgerEntryRepo ledgerEntryRepo;
     private final AccountService accountService;
+    private final LedgerOutboxRepo ledgerOutboxRepo;
     private Logger logger = LoggerFactory.getLogger(this.getClass());
 
     @Autowired
-    public LedgerEntryService(LedgerEntryRepo ledgerEntryRepo, AccountService accountService) {
+    public LedgerEntryService(LedgerEntryRepo ledgerEntryRepo, AccountService accountService, LedgerOutboxRepo ledgerOutboxRepo) {
         this.ledgerEntryRepo = ledgerEntryRepo;
         this.accountService = accountService;
+        this.ledgerOutboxRepo = ledgerOutboxRepo;
     }
     @Transactional
     public boolean createTransferEntry(LedgerEntry ledgerEntry){
         try{
-            ledgerEntryRepo.save(ledgerEntry);
+            ledgerEntryRepo.saveAndFlush(ledgerEntry);
             accountService.deltaAmount(ledgerEntry.getSenderId(), ledgerEntry.getRecipientId(), ledgerEntry.getAmount());
             return true;
         }catch (DataIntegrityViolationException e){
@@ -38,9 +41,7 @@ public class LedgerEntryService {
                 }
             }
             throw e;
-
         }
-
     }
 
 

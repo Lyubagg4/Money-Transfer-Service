@@ -2,6 +2,11 @@ package ru.zyryanova.TransferService.entity;
 
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -11,26 +16,31 @@ import java.util.Date;
 @Table(name = "transfer")
 public class Transfer {
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "transfer_id")
     private int transferId;
 
     @Column(name = "sender_id")
+    @NotBlank(message = "поле не должно быть пустым")
     private String senderId;
 
     @Column(name = "recipient_id")
+    @NotBlank(message = "поле не должно быть пустым")
     private String recipientId;
 
     @Column(name = "amount")
+    @Min(value = 1, message = "сумма должна быть больше 0")
     private int amount;
 
     @Column(name = "status")
     private String status;
 
     @Column(name = "created_at")
+    @CreationTimestamp
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
+    @UpdateTimestamp
     private LocalDateTime updatedAt;
 
     public Transfer() {

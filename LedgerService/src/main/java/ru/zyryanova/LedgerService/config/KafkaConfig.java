@@ -49,24 +49,24 @@ public class KafkaConfig {
     }
 
     @Bean
-    ProducerFactory<String, Object> producerFactory(){
+    ProducerFactory<String, String> producerFactory(){
         Map<String, Object> config = new HashMap<>();
         config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
                 environment.getProperty("spring.kafka.bootstrap-servers"));
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class);
+        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         return new DefaultKafkaProducerFactory<>(config);
     }
 
     @Bean
-    KafkaTemplate<String, Object> kafkaTemplate1(ProducerFactory<String, Object> producerFactory){
+    KafkaTemplate<String, String> kafkaTemplate(ProducerFactory<String, String> producerFactory){
         return new KafkaTemplate<>(producerFactory);
     }
 
     @Bean
     ConcurrentKafkaListenerContainerFactory<String, TransferCreatedEvent> kafkaListenerContainerFactory(
             ConsumerFactory<String, TransferCreatedEvent> consumerFactory,
-            KafkaTemplate<String, Object> kafkaTemplate){
+            KafkaTemplate<String, String> kafkaTemplate){
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(new DeadLetterPublishingRecoverer(kafkaTemplate),new FixedBackOff(3000, 5));
         ConcurrentKafkaListenerContainerFactory<String, TransferCreatedEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
         errorHandler.addRetryableExceptions(RetryableException.class, TransientDataAccessException.class, CannotAcquireLockException.class);

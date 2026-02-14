@@ -1,15 +1,18 @@
 package ru.zyryanova.TransferService.entity;
 
-import jakarta.persistence.Column;
 
-import java.util.Date;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+
 
 public class TransferDto {
-
+    @NotBlank(message = "поле не должно быть пустым")
     private String senderId;
 
+    @NotBlank(message = "поле не должно быть пустым")
     private String recipientId;
 
+    @Min(value = 1,  message = "сумма должна быть больше 0")
     private int amount;
 
     public TransferDto() {

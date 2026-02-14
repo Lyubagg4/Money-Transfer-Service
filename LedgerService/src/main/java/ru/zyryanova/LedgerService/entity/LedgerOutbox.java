@@ -1,25 +1,23 @@
-package ru.zyryanova.TransferService.entity;
+package ru.zyryanova.LedgerService.entity;
 
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-import org.hibernate.validator.constraints.UniqueElements;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "transfer_outbox")
-public class TransferOutbox {
+@Table(name = "ledger_outbox")
+public class LedgerOutbox {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name="outbox_id")
-    private int outboxId;
+    @Column(name="ledgerOutbox_id")
+    private int ledgerOutboxId;
 
     @Column(name="event_id", unique = true, nullable = false)
     private String eventId;
 
     @Column(name="transfer_id")
-    private int transferId;
+    private int entryId;
 
     @Column(name="topic")
     private String topic;
@@ -37,16 +35,15 @@ public class TransferOutbox {
     @Column(name="status")
     private String status;
 
-
-    public TransferOutbox() {
+    public LedgerOutbox() {
     }
 
-    public int getOutboxId() {
-        return outboxId;
+    public int getLedgerOutboxId() {
+        return ledgerOutboxId;
     }
 
-    public void setOutboxId(int outboxId) {
-        this.outboxId = outboxId;
+    public void setLedgerOutboxId(int ledgerOutboxId) {
+        this.ledgerOutboxId = ledgerOutboxId;
     }
 
     public String getEventId() {
@@ -57,12 +54,13 @@ public class TransferOutbox {
         this.eventId = eventId;
     }
 
-    public int getTransferId() {
-        return transferId;
+
+    public int getEntryId() {
+        return entryId;
     }
 
-    public void setTransferId(int transferId) {
-        this.transferId = transferId;
+    public void setEntryId(int entryId) {
+        this.entryId = entryId;
     }
 
     public String getTopic() {
@@ -81,14 +79,6 @@ public class TransferOutbox {
         this.payload = payload;
     }
 
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -97,11 +87,19 @@ public class TransferOutbox {
         this.createdAt = createdAt;
     }
 
-    public LocalDateTime getLocked_at() {
+    public LocalDateTime getLockedAt() {
         return lockedAt;
     }
 
-    public void setLocked_at(LocalDateTime locked_at) {
-        this.lockedAt = locked_at;
+    public void setLockedAt(LocalDateTime lockedAt) {
+        this.lockedAt = lockedAt;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }

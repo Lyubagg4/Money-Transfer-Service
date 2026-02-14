@@ -1,4 +1,4 @@
-package ru.zyryanova.TransferService.config;
+package ru.zyryanova.LedgerService.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;

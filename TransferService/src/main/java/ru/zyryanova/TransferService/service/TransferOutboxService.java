@@ -3,8 +3,7 @@ package ru.zyryanova.TransferService.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.example.TransferCreatedEvent;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.data.jpa.convert.threeten.Jsr310JpaConverters;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,7 +32,7 @@ public class TransferOutboxService {
         this.kafkaTemplate = kafkaTemplate;
     }
 
-    public ResponseEntity<String> create(Transfer transfer){
+    public void create(Transfer transfer) throws JsonProcessingException {
         String eventId = UUID.randomUUID().toString();
 
         TransferCreatedEvent transferCreatedEvent = new TransferCreatedEvent();
@@ -43,35 +42,35 @@ public class TransferOutboxService {
         TransferOutbox transferOutbox = new TransferOutbox();
         transferOutbox.setTransferId(transfer.getTransferId());
         transferOutbox.setEventId(eventId);
-        transferOutbox.setCreatedAt(LocalDateTime.now());
-        try {
-            transferOutbox.setPayload(objectMapper.writeValueAsString(transferCreatedEvent));
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
+        transferOutbox.setPayload(objectMapper.writeValueAsString(transferCreatedEvent));
         transferOutbox.setTopic(topicName);
         transferOutbox.setStatus("NEW");
         transferOutboxRepo.save(transferOutbox);
-
-
-        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @Transactional
-    public void processBatch() throws ExecutionException, InterruptedException {
+    public List<TransferOutbox> processBatch() {
         List<TransferOutbox> events = transferOutboxRepo.selectForProcessing(50);
-        for(TransferOutbox e: events){
-            process(e);
+        var now = LocalDateTime.now();
+        for (TransferOutbox e : events) {
+            e.setStatus("PROCESSING");
+            e.setLocked_at(now);
+        }
+        return transferOutboxRepo.saveAll(events);
+    }
+    @Transactional
+    public void process(List<TransferOutbox> list) throws ExecutionException, InterruptedException {
+        for(TransferOutbox transferOutbox: list){
+            try{
+                kafkaTemplate.send(transferOutbox.getTopic(),String.valueOf(transferOutbox.getTransferId()), transferOutbox.getPayload()).get();
+                transferOutboxRepo.delete(transferOutbox);
+            }catch (Exception e){
+                transferOutboxRepo.resetToNew(transferOutbox.getOutboxId());
+            }
         }
     }
-
-    public void process(TransferOutbox transferOutbox) throws ExecutionException, InterruptedException {
-        kafkaTemplate.send(transferOutbox.getTopic(),String.valueOf(transferOutbox.getTransferId()), transferOutbox.getPayload()).get();
-        transferOutboxRepo.delete(transferOutbox);
-
-    }
     public TransferCreatedEvent createEvent(Transfer transfer, TransferCreatedEvent transferCreatedEvent){
-        transferCreatedEvent.setId(transfer.getTransferId());
+        transferCreatedEvent.setTransfer_id(transfer.getTransferId());
         transferCreatedEvent.setRecipientId(transfer.getRecipientId());
         transferCreatedEvent.setAmount(transfer.getAmount());
         transferCreatedEvent.setSenderId(transfer.getSenderId());

@@ -20,8 +20,9 @@ public class AccountService {
         if(amount<=0){
             throw new NonRetryableException("Amount must be >0");
         }
-        if (senderId.equals(recipientId)) throw new NonRetryableException("Sender and recipient must differ");
-
+        if (senderId.equals(recipientId)){
+            throw new NonRetryableException("Sender and recipient must differ");
+        }
         int updated = accountRepo.deltaAmount(senderId,recipientId,amount);
         if(updated!=2){
             throw new NonRetryableException("Invalid operation (not found or insufficient funds)");
