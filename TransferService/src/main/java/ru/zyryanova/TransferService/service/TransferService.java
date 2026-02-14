@@ -1,5 +1,6 @@
 package ru.zyryanova.TransferService.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,17 +32,14 @@ public class TransferService {
     }
 
     @Transactional
-    public ResponseEntity<String> create(TransferDto transferDto){
+    public void create(TransferDto transferDto) throws JsonProcessingException {
         Transfer transfer = convertToEntity(transferDto);
-        transferRepo.save(transfer);
-        transferOutboxService.create(transfer);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        Transfer savedTransfer = transferRepo.saveAndFlush(transfer);
+        transferOutboxService.create(savedTransfer);
     }
 
     public Transfer convertToEntity(TransferDto transferDto){
         Transfer transfer = transferMapper.toEntity(transferDto);
-        transfer.setCreatedAt(LocalDateTime.now());
-        transfer.setUpdatedAt(LocalDateTime.now());
         transfer.setStatus("CREATED");
         return transfer;
     }

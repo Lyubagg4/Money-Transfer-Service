@@ -1,6 +1,9 @@
 package ru.zyryanova.TransferService.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.validator.constraints.UniqueElements;
 
 import java.time.LocalDateTime;
 
@@ -8,11 +11,11 @@ import java.time.LocalDateTime;
 @Table(name = "transfer_outbox")
 public class TransferOutbox {
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name="outbox_id")
     private int outboxId;
 
-    @Column(name="event_id")
+    @Column(name="event_id", unique = true, nullable = false)
     private String eventId;
 
     @Column(name="transfer_id")
@@ -25,11 +28,14 @@ public class TransferOutbox {
     private String payload;
 
     @Column(name="created_at")
+    @CreationTimestamp
     private LocalDateTime createdAt;
+
+    @Column(name="locked_at")
+    private LocalDateTime lockedAt;
 
     @Column(name="status")
     private String status;
-
 
 
     public TransferOutbox() {
@@ -89,5 +95,13 @@ public class TransferOutbox {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getLocked_at() {
+        return lockedAt;
+    }
+
+    public void setLocked_at(LocalDateTime locked_at) {
+        this.lockedAt = locked_at;
     }
 }

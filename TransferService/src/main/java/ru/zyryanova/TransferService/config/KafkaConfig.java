@@ -2,9 +2,7 @@ package ru.zyryanova.TransferService.config;
 
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.example.TransferCreatedEvent;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -12,7 +10,6 @@ import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
-import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -28,11 +25,20 @@ public class KafkaConfig{
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,environment.getProperty("spring.kafka.producer.key-serializer"));
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,environment.getProperty("spring.kafka.producer.value-serializer"));
         config.put(ProducerConfig.ACKS_CONFIG,environment.getProperty("spring.kafka.producer.acks"));
-        config.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, environment.getProperty("spring.kafka.producer.properties.delivery.timeout.ms"));
-        config.put(ProducerConfig.LINGER_MS_CONFIG,environment.getProperty("spring.kafka.producer.properties.linger.ms"));
-        config.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG,environment.getProperty("spring.kafka.producer.properties.request.timeout.ms"));
-        config.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG,environment.getProperty("spring.kafka.producer.properties.enable.idempotence"));
-        config.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION,environment.getProperty("spring.kafka.producer.properties.max.in.flight.requests.per.connection"));
+        config.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG,
+                Integer.parseInt(environment.getProperty("spring.kafka.producer.properties.delivery.timeout.ms", "20000")));
+
+        config.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG,
+                Integer.parseInt(environment.getProperty("spring.kafka.producer.properties.request.timeout.ms", "10000")));
+
+        config.put(ProducerConfig.LINGER_MS_CONFIG,
+                Integer.parseInt(environment.getProperty("spring.kafka.producer.properties.linger.ms", "0")));
+        config.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG,
+                Boolean.parseBoolean(environment.getProperty("spring.kafka.producer.properties.enable.idempotence", "true")));
+        config.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION,
+                Integer.parseInt(environment.getProperty("spring.kafka.producer.properties.max.in.flight.requests.per.connection", "5")));
+        config.put(ProducerConfig.RETRIES_CONFIG,
+                Integer.parseInt(environment.getProperty("spring.kafka.producer.retries", "10")));
         return config;
     }
 

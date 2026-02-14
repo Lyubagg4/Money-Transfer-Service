@@ -1,4 +1,4 @@
-package ru.zyryanova.LedgerService.exception;
+package ru.zyryanova.NotificationService.error;
 
 public class RetryableException extends RuntimeException{
     public RetryableException(String message) {
