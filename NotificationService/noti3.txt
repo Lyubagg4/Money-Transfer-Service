@@ -1,0 +1,313 @@
+===== ./src/test/java/ru/zyryanova/NotificationService/NotificationServiceApplicationTests.java =====
+package ru.zyryanova.NotificationService;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class NotificationServiceApplicationTests {
+
+	@Test
+	void contextLoads() {
+	}
+
+}
+
+===== ./src/main/java/ru/zyryanova/NotificationService/handler/NotificationCreatedEventHandler.java =====
+package ru.zyryanova.NotificationService.handler;
+
+import org.example.NotificationCreatedEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.stereotype.Component;
+import ru.zyryanova.NotificationService.entity.Notification;
+import ru.zyryanova.NotificationService.service.NotificationService;
+
+@Component
+public class NotificationCreatedEventHandler{
+    private final NotificationService notificationService;
+    private Logger logger = LoggerFactory.getLogger(this.getClass());
+
+    @Autowired
+    public NotificationCreatedEventHandler(NotificationService notificationService) {
+        this.notificationService = notificationService;
+    }
+
+    @KafkaListener(topics = "notification-created-topic",
+            groupId = "notification-created-events",
+            containerFactory = "kafkaListenerContainerFactory")
+    public void handle(@Payload NotificationCreatedEvent notificationCreatedEvent){
+        logger.info("received notification from ledger service");
+        notificationService.create(notificationCreatedEvent);
+    }
+
+
+}
+
+===== ./src/main/java/ru/zyryanova/NotificationService/reposotory/NotificationRepo.java =====
+package ru.zyryanova.NotificationService.reposotory;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+import ru.zyryanova.NotificationService.entity.Notification;
+
+@Repository
+public interface NotificationRepo extends JpaRepository<Notification, Integer> {
+}
+
+===== ./src/main/java/ru/zyryanova/NotificationService/config/KafkaConfig.java =====
+package ru.zyryanova.NotificationService.config;
+
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.example.NotificationCreatedEvent;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.TransientDataAccessException;
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.core.*;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
+import org.springframework.util.backoff.FixedBackOff;
+import ru.zyryanova.NotificationService.error.NonRetryableException;
+import ru.zyryanova.NotificationService.error.RetryableException;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Configuration
+public class KafkaConfig{
+    private final Environment environment;
+
+    @Autowired
+    public KafkaConfig(Environment environment) {
+        this.environment = environment;
+    }
+    @Bean
+    ConsumerFactory<String, NotificationCreatedEvent> consumerFactory(){
+        Map<String, Object> config = new HashMap<>();
+        config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, environment.getProperty("spring.kafka.bootstrap-servers"));
+        config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+        config.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JacksonJsonDeserializer.class);
+        config.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, environment.getProperty("spring.kafka.consumer.properties.spring.json.trusted.packages"));
+        config.put(ConsumerConfig.GROUP_ID_CONFIG, environment.getProperty("spring.kafka.consumer.group-id"));
+        config.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, NotificationCreatedEvent.class.getName());
+        return new DefaultKafkaConsumerFactory<>(config);
+    }
+
+    @Bean
+    ConcurrentKafkaListenerContainerFactory<String, NotificationCreatedEvent> kafkaListenerContainerFactory(
+            ConsumerFactory<String, NotificationCreatedEvent> consumerFactory,
+            KafkaTemplate<String, Object> kafkaTemplate){
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(new DeadLetterPublishingRecoverer(kafkaTemplate),new FixedBackOff(3000, 5));
+        ConcurrentKafkaListenerContainerFactory<String, NotificationCreatedEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        errorHandler.addRetryableExceptions(RetryableException.class, TransientDataAccessException.class, CannotAcquireLockException.class);
+        errorHandler.addNotRetryableExceptions(NonRetryableException.class,
+                org.springframework.kafka.support.serializer.DeserializationException.class,
+                org.springframework.messaging.converter.MessageConversionException.class);
+        factory.setConsumerFactory(consumerFactory);
+        factory.setCommonErrorHandler(errorHandler);
+        return factory;
+    }
+
+    @Bean
+    ProducerFactory<String, Object> producerFactory(){
+        Map<String, Object> config = new HashMap<>();
+        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                environment.getProperty("spring.kafka.bootstrap-servers"));
+        config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class);
+        return new DefaultKafkaProducerFactory<>(config);
+    }
+
+    @Bean
+    KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> producerFactory){
+        return new KafkaTemplate<>(producerFactory);
+    }
+
+
+}
+
+===== ./src/main/java/ru/zyryanova/NotificationService/entity/Notification.java =====
+package ru.zyryanova.NotificationService.entity;
+
+import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "notification")
+public class Notification{
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "notification_id")
+    private int notificationId;
+
+    @Column(name = "event_id", unique = true, nullable = false)
+    private String eventId;
+
+    @Column(name = "level")
+    private String level;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "operation_time")
+    private LocalDateTime operation_time;
+
+
+    public Notification(int notificationId, String eventId, String level, LocalDateTime createdAt) {
+        this.notificationId = notificationId;
+        this.eventId = eventId;
+        this.level = level;
+        this.createdAt = createdAt;
+    }
+
+    public Notification() {
+    }
+
+    public int getNotificationId() {
+        return notificationId;
+    }
+
+    public void setNotificationId(int notificationId) {
+        this.notificationId = notificationId;
+    }
+
+    public String getEventId() {
+        return eventId;
+    }
+
+    public void setEventId(String eventId) {
+        this.eventId = eventId;
+    }
+
+    public String getLevel() {
+        return level;
+    }
+
+    public void setLevel(String level) {
+        this.level = level;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getOperation_time() {
+        return operation_time;
+    }
+
+    public void setOperation_time(LocalDateTime operation_time) {
+        this.operation_time = operation_time;
+    }
+}
+
+===== ./src/main/java/ru/zyryanova/NotificationService/NotificationServiceApplication.java =====
+package ru.zyryanova.NotificationService;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class NotificationServiceApplication {
+    public static void main(String[] args) {
+		SpringApplication.run(NotificationServiceApplication.class, args);
+	}
+
+}
+
+===== ./src/main/java/ru/zyryanova/NotificationService/service/NotificationService.java =====
+package ru.zyryanova.NotificationService.service;
+
+import org.example.NotificationCreatedEvent;
+import org.hibernate.exception.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import ru.zyryanova.NotificationService.entity.Notification;
+import ru.zyryanova.NotificationService.reposotory.NotificationRepo;
+
+import java.time.LocalDateTime;
+
+@Service
+public class NotificationService {
+    private final NotificationRepo notificationRepo;
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
+    @Autowired
+    public NotificationService(NotificationRepo notificationRepo) {
+        this.notificationRepo = notificationRepo;
+    }
+
+    @Transactional// надо ли
+    public boolean create(NotificationCreatedEvent notificationCreatedEvent){
+        Notification notification = new Notification();
+        notification.setLevel(notificationCreatedEvent.getLevel());
+        notification.setCreatedAt(LocalDateTime.now());
+        notification.setEventId(notificationCreatedEvent.getEventId());
+        notification.setOperation_time(notificationCreatedEvent.getCreatedAt());
+        try{
+            notificationRepo.save(notification);
+            return true;
+        }catch (DataIntegrityViolationException e){
+            Throwable root = NestedExceptionUtils.getRootCause(e);
+            if (root instanceof ConstraintViolationException cve) {
+                String sqlState = cve.getSQLException() != null ? cve.getSQLException().getSQLState() : null;
+                if ("23505".equals(sqlState)) {
+                    logger.warn("Duplicate eventId={}, ignoring", notificationCreatedEvent.getEventId());
+                    return false;
+                }
+            }
+            throw e;
+        }
+
+    }
+}
+
+===== ./src/main/java/ru/zyryanova/NotificationService/error/NonRetryableException.java =====
+package ru.zyryanova.NotificationService.error;
+
+public class NonRetryableException extends RuntimeException{
+    public NonRetryableException(String message) {
+        super(message);
+    }
+
+    public NonRetryableException(Throwable cause) {
+        super(cause);
+    }
+}
+
+===== ./src/main/java/ru/zyryanova/NotificationService/error/RetryableException.java =====
+package ru.zyryanova.NotificationService.error;
+
+public class RetryableException extends RuntimeException{
+    public RetryableException(String message) {
+        super(message);
+    }
+
+    public RetryableException(Throwable cause) {
+        super(cause);
+    }
+}
+

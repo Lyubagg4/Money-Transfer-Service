@@ -9,6 +9,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.zyryanova.LedgerService.entity.LedgerEntry;
+import ru.zyryanova.LedgerService.error.RetryableException;
 import ru.zyryanova.LedgerService.repository.LedgerEntryRepo;
 import ru.zyryanova.LedgerService.repository.LedgerOutboxRepo;
 
@@ -27,21 +28,12 @@ public class LedgerEntryService {
     }
     @Transactional
     public boolean createTransferEntry(LedgerEntry ledgerEntry){
-        try{
-            ledgerEntryRepo.saveAndFlush(ledgerEntry);
-            accountService.deltaAmount(ledgerEntry.getSenderId(), ledgerEntry.getRecipientId(), ledgerEntry.getAmount());
-            return true;
-        }catch (DataIntegrityViolationException e){
-            Throwable root = NestedExceptionUtils.getRootCause(e);
-            if (root instanceof ConstraintViolationException cve) {
-                String sqlState = cve.getSQLException() != null ? cve.getSQLException().getSQLState() : null;
-                if ("23505".equals(sqlState)) {
-                    logger.warn("Duplicate eventId={}, ignoring", ledgerEntry.getEventId());
-                    return false;
-                }
-            }
-            throw e;
-        }
+        int inserted = ledgerEntryRepo.insertIgnore(ledgerEntry.getSenderId(), ledgerEntry.getRecipientId(), ledgerEntry.getAmount(),
+                ledgerEntry.getTransferId(), ledgerEntry.getEventId(), ledgerEntry.getCreatedAt());
+        if(inserted==0) return false;
+        accountService.deltaAmount(ledgerEntry.getSenderId(), ledgerEntry.getRecipientId(), ledgerEntry.getAmount());
+        return true;
+
     }
 
 

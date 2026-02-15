@@ -44,7 +44,6 @@ public class LedgerOutboxService {
     }
     @Transactional
     public void process(List<LedgerOutbox> list) throws ExecutionException, InterruptedException {
-        System.out.println("START process");
         for(LedgerOutbox ledgerOutbox : list){
             try{
                 kafkaTemplate.send(ledgerOutbox.getTopic(),String.valueOf(ledgerOutbox.getEntryId()), ledgerOutbox.getPayload()).get();
@@ -53,19 +52,16 @@ public class LedgerOutboxService {
                 ledgerOutboxRepo.resetToNew(ledgerOutbox.getLedgerOutboxId());
             }
         }
-        System.out.println("END OF process ");
     }
 
     @Transactional
     public List<LedgerOutbox> processBatch() {
-        System.out.println("в шедулере process batch");
         List<LedgerOutbox> events = ledgerOutboxRepo.selectForProcessing(50);
         var now = LocalDateTime.now();
         for (LedgerOutbox e : events) {
             e.setStatus("PROCESSING");
             e.setLockedAt(now);
         }
-        System.out.println("END OF process batch");
         return ledgerOutboxRepo.saveAll(events);
 
     }

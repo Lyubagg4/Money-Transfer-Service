@@ -3,26 +3,27 @@ package org.example;
 import java.time.LocalDateTime;
 
 public class NotificationCreatedEvent {
-    private String message;    // текст лога
+    private String eventId;// текст лога
     private String level;  // INFO, ERROR, WARN
-    private LocalDateTime timestamp;
+    private LocalDateTime createdAt;
+
+    public NotificationCreatedEvent(String eventId, String level, LocalDateTime createdAt) {
+        this.eventId = eventId;
+        this.level = level;
+        this.createdAt = createdAt;
+    }
 
     public NotificationCreatedEvent() {
     }
 
-    public NotificationCreatedEvent(String message, String level, LocalDateTime timestamp) {
-        this.message = message;
-        this.level = level;
-        this.timestamp = timestamp;
+    public String getEventId() {
+        return eventId;
     }
 
-    public String getMessage() {
-        return message;
+    public void setEventId(String eventId) {
+        this.eventId = eventId;
     }
 
-    public void setMessage(String message) {
-        this.message = message;
-    }
 
     public String getLevel() {
         return level;
@@ -32,11 +33,11 @@ public class NotificationCreatedEvent {
         this.level = level;
     }
 
-    public LocalDateTime getTimestamp() {
-        return timestamp;
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
     }
 
-    public void setTimestamp(LocalDateTime timestamp) {
-        this.timestamp = timestamp;
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }

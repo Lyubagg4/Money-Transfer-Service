@@ -5,11 +5,14 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.example.NotificationCreatedEvent;
+import org.example.TransferCreatedEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
@@ -52,8 +55,16 @@ public class KafkaConfig{
             KafkaTemplate<String, Object> kafkaTemplate){
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(new DeadLetterPublishingRecoverer(kafkaTemplate),new FixedBackOff(3000, 5));
         ConcurrentKafkaListenerContainerFactory<String, NotificationCreatedEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
-        errorHandler.addRetryableExceptions(RetryableException.class, TransientDataAccessException.class, CannotAcquireLockException.class);
-        errorHandler.addNotRetryableExceptions(NonRetryableException.class,
+        errorHandler.addRetryableExceptions(
+                DeadlockLoserDataAccessException.class,
+                TransientDataAccessException.class,
+                CannotAcquireLockException.class,
+                RetryableException.class);
+
+        errorHandler.addNotRetryableExceptions(
+                NonRetryableException.class,
+                IllegalArgumentException.class,
+                DataIntegrityViolationException.class,
                 org.springframework.kafka.support.serializer.DeserializationException.class,
                 org.springframework.messaging.converter.MessageConversionException.class);
         factory.setConsumerFactory(consumerFactory);

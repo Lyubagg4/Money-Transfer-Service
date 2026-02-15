@@ -43,7 +43,6 @@ public class TransferCreatedEventHandler {
             groupId = "transfer-created-events",
             containerFactory = "kafkaListenerContainerFactory")
     public void handle(@Payload TransferCreatedEvent transferCreatedEvent) throws JsonProcessingException {
-        System.out.println("ЗАШЛИ В ХЭНДЛЕР");
         LedgerEntry ledgerEntry = new LedgerEntry();
         ledgerEntry.setEventId(transferCreatedEvent.getEventId());
         ledgerEntry.setSenderId(transferCreatedEvent.getSenderId());
@@ -56,8 +55,6 @@ public class TransferCreatedEventHandler {
         if(result){
             ledgerOutboxRepo.save(ledgerOutboxService.create(ledgerEntry));
         }
-        System.out.println("ВЫШЛИ ИЗ ХЭНДЛЕР");
-
     }
 
 }

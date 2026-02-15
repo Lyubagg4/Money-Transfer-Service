@@ -11,6 +11,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.TopicBuilder;
@@ -69,10 +71,20 @@ public class KafkaConfig {
             KafkaTemplate<String, String> kafkaTemplate){
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(new DeadLetterPublishingRecoverer(kafkaTemplate),new FixedBackOff(3000, 5));
         ConcurrentKafkaListenerContainerFactory<String, TransferCreatedEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
-        errorHandler.addRetryableExceptions(RetryableException.class, TransientDataAccessException.class, CannotAcquireLockException.class);
-        errorHandler.addNotRetryableExceptions(NonRetryableException.class,
+        errorHandler.addRetryableExceptions(
+                DeadlockLoserDataAccessException.class,
+                TransientDataAccessException.class,
+                CannotAcquireLockException.class,
+                RetryableException.class);
+
+        errorHandler.addNotRetryableExceptions(
+                NonRetryableException.class,
+                IllegalArgumentException.class,
+                DataIntegrityViolationException.class,
+                com.fasterxml.jackson.core.JsonProcessingException.class,
                 org.springframework.kafka.support.serializer.DeserializationException.class,
                 org.springframework.messaging.converter.MessageConversionException.class);
+
         factory.setConsumerFactory(consumerFactory);
         factory.setCommonErrorHandler(errorHandler);
         return factory;
